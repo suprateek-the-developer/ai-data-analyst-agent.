@@ -51,33 +51,43 @@ def answer_question(df, question):
             ),
             None
         )
+    else:
+        group_col = next(
+            (
+                col for col in categorical_cols
+                if re.search(
+                    rf"\bwhich\s+{re.escape(col.replace('_', ' '))}\b",
+                    q,
+                )
+            ),
+            None,
+        )
 
     if group_col and metric:
         grouped = (
             df.groupby(group_col, dropna=False)[metric]
             .sum()
-            .sort_values(ascending=False)
         )
 
         if any(word in q for word in [
             "lowest", "least", "minimum", "worst"
         ]):
-            result = grouped.tail(1)
+            value = grouped.min()
             direction = "Lowest"
         else:
-            result = grouped.head(1)
+            value = grouped.max()
             direction = "Highest"
 
-        if result.empty:
+        if pd.isna(value):
             return {"answer": "No valid groups found."}
 
-        category = result.index[0]
-        value = float(result.iloc[0])
+        leaders = grouped[grouped == value].index
+        categories = ", ".join(str(category) for category in leaders)
 
         return {
             "answer": (
                 f"{direction} {metric} by {group_col}: "
-                f"{category} ({value:,.2f})."
+                f"{categories} ({value:,.2f})."
             ),
             "table": grouped.rename(
                 metric
